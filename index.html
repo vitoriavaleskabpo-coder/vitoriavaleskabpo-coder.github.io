@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Segurança: esta página não carrega nada de fora e não consegue enviar dados a lugar nenhum. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Retorno da autorização</title>
+<style>
+  :root { --fundo: #f4f6f9; --cartao: #ffffff; --texto: #1d2733; --suave: #5b6878; --azul: #1f4e78; --ok: #1e7a3c; --erro: #b3261e; --borda: #d5dbe3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fundo: #11161c; --cartao: #1a2129; --texto: #e6ebf0; --suave: #9aa7b5; --azul: #6aa6e0; --ok: #5fc27e; --erro: #f2867e; --borda: #2c3642; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 640px; margin: 48px auto; padding: 0 16px; }
+  .cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 28px; }
+  h1 { font-size: 1.4rem; margin: 0 0 12px; }
+  .ok { color: var(--ok); }
+  .erro { color: var(--erro); }
+  ol { padding-left: 1.3em; }
+  li { margin: 6px 0; }
+  textarea { width: 100%; height: 5.5em; font: 13px/1.4 Consolas, monospace; padding: 8px; border: 1px solid var(--borda); border-radius: 8px; background: var(--fundo); color: var(--texto); resize: none; }
+  button { margin-top: 10px; font: inherit; font-weight: 600; padding: 10px 18px; border: 0; border-radius: 8px; background: var(--azul); color: #fff; cursor: pointer; }
+  .suave { color: var(--suave); font-size: 0.92rem; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="cartao">
+
+    <section id="com-codigo" hidden>
+      <h1 class="ok">Autorização recebida</h1>
+      <ol>
+        <li>Clique em <strong>Copiar endereço</strong> (ou copie o endereço da barra do navegador com Ctrl+A e Ctrl+C).</li>
+        <li>Volte ao PowerShell, clique com o <strong>botão direito</strong> para colar e aperte <strong>Enter</strong>.</li>
+      </ol>
+      <textarea id="endereco" readonly aria-label="Endereço completo"></textarea>
+      <button type="button" id="copiar">Copiar endereço</button>
+      <p id="tempo" class="suave"></p>
+    </section>
+
+    <section id="com-erro" hidden>
+      <h1 class="erro">A autorização não foi concluída</h1>
+      <p>Mensagem do Conta Azul: <strong id="mensagem-erro"></strong></p>
+      <p>Rode o comando <code>autorizar</code> de novo no PowerShell.</p>
+    </section>
+
+    <section id="sem-codigo">
+      <h1>Página de retorno da autorização</h1>
+      <p>Esta página só é usada durante a conexão de uma empresa ao Conta Azul.
+         Abrir esta página diretamente não faz nada.</p>
+    </section>
+
+    <p class="suave">Esta página não guarda nem envia nenhuma informação: tudo fica só no seu navegador.</p>
+  </div>
+</main>
+<script>
+(function () {
+  var endereco = window.location.href;
+  var parametros = new URLSearchParams(window.location.search || window.location.hash.replace(/^#\/?\??/, ""));
+
+  if (parametros.get("error")) {
+    document.getElementById("sem-codigo").hidden = true;
+    document.getElementById("com-erro").hidden = false;
+    document.getElementById("mensagem-erro").textContent =
+      parametros.get("error_description") || parametros.get("error");
+    return;
+  }
+  if (!/[?&#]code=/.test(endereco)) return;
+
+  document.getElementById("sem-codigo").hidden = true;
+  document.getElementById("com-codigo").hidden = false;
+  var campo = document.getElementById("endereco");
+  campo.value = endereco;
+
+  var botao = document.getElementById("copiar");
+  botao.addEventListener("click", function () {
+    function copiou() { botao.textContent = "Copiado! Agora cole no PowerShell"; }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(endereco).then(copiou, function () { campo.select(); document.execCommand("copy"); copiou(); });
+    } else {
+      campo.select(); document.execCommand("copy"); copiou();
+    }
+  });
+
+  var limite = Date.now() + 3 * 60 * 1000;
+  var tempo = document.getElementById("tempo");
+  function atualizar() {
+    var resta = Math.max(0, Math.round((limite - Date.now()) / 1000));
+    tempo.textContent = resta > 0
+      ? "O código vale por mais " + Math.floor(resta / 60) + ":" + String(resta % 60).padStart(2, "0") + " minuto(s)."
+      : "O código provavelmente expirou. Rode o comando autorizar de novo.";
+    if (resta === 0) clearInterval(relogio);
+  }
+  var relogio = setInterval(atualizar, 1000);
+  atualizar();
+})();
+</script>
+</body>
+</html>
